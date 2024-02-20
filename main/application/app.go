@@ -11,37 +11,40 @@ import (
 
 type App struct {
 	router http.Handler
-	rdb *redis.Client
+	rdb    *redis.Client
+	config Config
 }
 
-func New() *App {
+func New(config Config) *App {
 	app := &App{
-		router: loadRoutes(),
-		rdb: redis.NewClient(&redis.Options{}),
+		rdb: redis.NewClient(&redis.Options{
+			Addr: config.RedisAddress,
+		}),
 	}
+	app.loadRoutes()
 
 	return app
 }
 
-func (this *App) Start(ctx context.Context) error {
+func (a *App) Start(ctx context.Context) error {
 	server := &http.Server{
-		Addr:    ":3000",
-		Handler: this.router,
+		Addr:    fmt.Sprintf(":%d", a.config.ServerPort),
+		Handler: a.router,
 	}
-	err:=this.rdb.Ping(ctx).Err()
+	err := a.rdb.Ping(ctx).Err()
 	if err != nil {
 		return fmt.Errorf("failed to start server: %w", err)
 	}
-	
-	defer func(){
-		if err:= this.rdb.Close(); err!= nil {
-			fmt.Println("failed to close redis",err)
+
+	defer func() {
+		if err := a.rdb.Close(); err != nil {
+			fmt.Println("failed to close redis", err)
 		}
 	}()
 
-	ch :=make(chan error,1)
+	ch := make(chan error, 1)
 
-	go func(){
+	go func() {
 		err = server.ListenAndServe()
 		if err != nil {
 			ch <- fmt.Errorf("failed to start server: %w", err)
@@ -49,12 +52,12 @@ func (this *App) Start(ctx context.Context) error {
 		close(ch)
 	}()
 
-	select{
-		case <-ctx.Done():
-			timeout, cancel:=context.WithTimeout(context.Background(),time.Second*10)
-			defer cancel()
-			return server.Shutdown(timeout)
-		case err=<-ch:
-			return err
+	select {
+	case <-ctx.Done():
+		timeout, cancel := context.WithTimeout(context.Background(), time.Second*10)
+		defer cancel()
+		return server.Shutdown(timeout)
+	case err = <-ch:
+		return err
 	}
 }

@@ -8,15 +8,15 @@ import (
 	"os/signal"
 )
 
-func main(){
-	app:=application.New()
+func main() {
+	app := application.New(application.LoadConfig())
 
-	ctx, cancel :=signal.NotifyContext(context.Background(),os.Interrupt)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer cancel()
 
-	err:=app.Start(ctx)
+	err := app.Start(ctx)
 	if err != nil {
-		fmt.Println("failed to start app:",err)
+		fmt.Println("failed to start app:", err)
 	}
 
 }
