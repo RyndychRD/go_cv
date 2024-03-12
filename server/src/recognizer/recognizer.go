@@ -11,9 +11,10 @@ import (
 )
 
 var (
-	modelsDir       = filepath.Join("recognizer", "models")
-	imagesDir       = filepath.Join("recognizer", "images")
-	isTestThreshold = false
+	modelsDir            = filepath.Join("recognizer", "models")
+	imagesDir            = filepath.Join("recognizer", "images")
+	isTestThreshold      = false
+	catForIdentification = 200
 )
 
 func InitEnv() {
@@ -76,7 +77,7 @@ func IsSamePerson(id string, image []byte) (result bool, Err error) {
 	rec.SetSamples(samples, cats)
 	catID := rec.ClassifyThreshold(f.Descriptor, float32(0.2))
 	testThresholdIfEnabled(rec, f)
-	return catID == 200, nil
+	return catID == catForIdentification, nil
 }
 
 type MyError struct {
@@ -120,6 +121,7 @@ func saveFile(id string, image []byte) error {
 }
 
 func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, cats []int32, Err error) {
+	catForIdentificationInt32 := int32(catForIdentification)
 	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -131,7 +133,7 @@ func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, c
 			}
 			if faceT != nil {
 				samples = append(samples, faceT.Descriptor)
-				cats = append(cats, 200)
+				cats = append(cats, catForIdentificationInt32)
 			}
 		}
 		return nil
