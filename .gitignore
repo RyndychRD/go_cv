@@ -1,1 +1,2 @@
-server/main/recognizer/images
+server/images
+server/main/.env

@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"fmt"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
@@ -24,13 +23,13 @@ func (h *Recognizer) Recognize(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	fmt.Println(result)
-	if result == true {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	if result {
 		w.Write([]byte("{status:true}"))
 	} else {
 		w.Write([]byte("{status:false}"))
 	}
-	w.WriteHeader(http.StatusOK)
 
 }
 
