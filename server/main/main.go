@@ -15,18 +15,7 @@ func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Print("No .env file found, using default values")
 	}
-	modelPath, mExists := os.LookupEnv("MODEL_FULL_PATH")
-	if mExists && modelPath != "" {
-		recognizer.ModelsDir = modelPath
-	}
-	storagePath, sExists := os.LookupEnv("STORAGE_FULL_PATH")
-	if sExists && storagePath != "" {
-		recognizer.ImagesDir = storagePath
-	}
-	isTestThreshold, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
-	if tExists && isTestThreshold == "1" {
-		recognizer.IsTestThreshold = true
-	}
+	recognizer.InitEnv()
 }
 
 func main() {

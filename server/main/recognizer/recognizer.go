@@ -11,23 +11,31 @@ import (
 )
 
 var (
-	ModelsDir       = filepath.Join("recognizer", "models")
-	ImagesDir       = filepath.Join("recognizer", "images")
-	IsTestThreshold = false
+	modelsDir       = filepath.Join("recognizer", "models")
+	imagesDir       = filepath.Join("recognizer", "images")
+	isTestThreshold = false
 )
 
-type MyError struct {
-	custom string
-	origin error
-}
-
-func (e *MyError) Error() string {
-	return fmt.Sprintf("%s, origin: %s",
-		e.custom, e.origin)
+func InitEnv() {
+	modelPath, mExists := os.LookupEnv("MODEL_FULL_PATH")
+	if mExists && modelPath != "" {
+		fmt.Println("model path set")
+		modelsDir = modelPath
+	}
+	storagePath, sExists := os.LookupEnv("STORAGE_FULL_PATH")
+	if sExists && storagePath != "" {
+		fmt.Println("image path set")
+		imagesDir = storagePath
+	}
+	isTest, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
+	if tExists && isTest == "1" {
+		fmt.Println("is test threshold set")
+		isTestThreshold = true
+	}
 }
 
 func RecognizeAndSave(id string, image []byte) error {
-	rec, err := face.NewRecognizer(ModelsDir)
+	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
 		log.Fatalf("can't init face recognizer: %v", err)
 	}
@@ -42,9 +50,13 @@ func RecognizeAndSave(id string, image []byte) error {
 }
 
 func IsSamePerson(id string, image []byte) (result bool, Err error) {
-	rec, err := face.NewRecognizer(ModelsDir)
+	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
-		log.Fatalf("can't init face recognizer: %v", err)
+		Err = &MyError{
+			custom: "can't init face recognizer:",
+			origin: err,
+		}
+		return
 	}
 	defer rec.Close()
 
@@ -67,6 +79,16 @@ func IsSamePerson(id string, image []byte) (result bool, Err error) {
 	return catID == 200, nil
 }
 
+type MyError struct {
+	custom string
+	origin error
+}
+
+func (e *MyError) Error() string {
+	return fmt.Sprintf("%s, origin: %s",
+		e.custom, e.origin)
+}
+
 func recognizeOneFace(rec *face.Recognizer, image []byte) (face face.Face, Err error) {
 	faces, err := rec.Recognize(image)
 	if err != nil {
@@ -86,14 +108,14 @@ func recognizeOneFace(rec *face.Recognizer, image []byte) (face face.Face, Err e
 }
 
 func saveFile(id string, image []byte) error {
-	directory := filepath.Join(ImagesDir, id)
+	directory := filepath.Join(imagesDir, id)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
 		err := os.Mkdir(directory, 0755)
 		if err != nil {
 			return &MyError{custom: "can't create destination folder:", origin: err}
 		}
 	}
-	os.WriteFile(filepath.Join(ImagesDir, id, uuid.New().String()+".jpg"), image, 0777)
+	os.WriteFile(filepath.Join(imagesDir, id, uuid.New().String()+".jpg"), image, 0777)
 	return nil
 }
 
@@ -122,7 +144,7 @@ func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, c
 }
 
 func checkTrainingDataExist(id string) (directory string, Err error) {
-	directory = filepath.Join(ImagesDir, id)
+	directory = filepath.Join(imagesDir, id)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
 		Err = errors.New("no training data found")
 		return
@@ -131,7 +153,7 @@ func checkTrainingDataExist(id string) (directory string, Err error) {
 }
 
 func testThresholdIfEnabled(rec *face.Recognizer, f face.Face) {
-	if IsTestThreshold {
+	if isTestThreshold {
 		for i := 1; i <= 10; i++ {
 			thr := float32(i) / float32(10)
 			catID := rec.ClassifyThreshold(f.Descriptor, thr)

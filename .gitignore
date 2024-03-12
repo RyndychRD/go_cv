@@ -1,2 +1,5 @@
 server/images
-server/main/.env
+server/main/main.exe
+server/main/handler/order.go
+server/main/model/order.go
+server/main/repository/order
