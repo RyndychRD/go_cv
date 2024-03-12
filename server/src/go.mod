@@ -1,4 +1,4 @@
-module opencv/main
+module opencv/src
 
 go 1.21.6
 

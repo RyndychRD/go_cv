@@ -4,7 +4,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"io"
 	"net/http"
-	"opencv/main/recognizer"
+	"opencv/src/recognizer"
 )
 
 type Recognizer struct {

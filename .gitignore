@@ -1,5 +1,5 @@
 server/images
-server/main/main.exe
-server/main/handler/order.go
-server/main/model/order.go
-server/main/repository/order
+server/src/main.exe
+server/src/handler/order.go
+server/src/model/order.go
+server/src/repository/order

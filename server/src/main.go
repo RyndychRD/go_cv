@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	"log"
-	"opencv/main/application"
-	"opencv/main/recognizer"
+	"opencv/src/application"
+	"opencv/src/recognizer"
 	"os"
 	"os/signal"
 )
