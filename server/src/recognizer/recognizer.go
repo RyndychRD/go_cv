@@ -20,17 +20,14 @@ var (
 func InitEnv() {
 	modelPath, mExists := os.LookupEnv("MODEL_FULL_PATH")
 	if mExists && modelPath != "" {
-		fmt.Println("model path set")
 		modelsDir = modelPath
 	}
 	storagePath, sExists := os.LookupEnv("STORAGE_FULL_PATH")
 	if sExists && storagePath != "" {
-		fmt.Println("image path set")
 		imagesDir = storagePath
 	}
 	isTest, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
 	if tExists && isTest == "1" {
-		fmt.Println("is test threshold set")
 		isTestThreshold = true
 	}
 }

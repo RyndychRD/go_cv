@@ -3,3 +3,4 @@ server/src/main.exe
 server/src/handler/order.go
 server/src/model/order.go
 server/src/repository/order
+server/src/vendor

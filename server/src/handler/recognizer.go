@@ -26,9 +26,9 @@ func (h *Recognizer) Recognize(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if result {
-		w.Write([]byte("{status:true}"))
+		w.Write([]byte("{result:true}"))
 	} else {
-		w.Write([]byte("{status:false}"))
+		w.Write([]byte("{result:false}"))
 	}
 
 }

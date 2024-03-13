@@ -3,6 +3,7 @@ package application
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 )
@@ -31,6 +32,7 @@ func (app *App) Start(ctx context.Context) error {
 
 	go func() {
 		err := server.ListenAndServe()
+		log.Println("Server started")
 		if err != nil {
 			ch <- fmt.Errorf("failed to start server: %w", err)
 		}
