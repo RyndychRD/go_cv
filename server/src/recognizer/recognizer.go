@@ -8,6 +8,8 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 )
 
 var (
@@ -108,7 +110,7 @@ func recognizeOneFace(rec *face.Recognizer, image []byte) (face face.Face, Err e
 func saveFile(id string, image []byte) error {
 	directory := filepath.Join(imagesDir, id)
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		err := os.Mkdir(directory, 0755)
+		err := os.MkdirAll(directory, 0755)
 		if err != nil {
 			return &MyError{custom: "can't create destination folder:", origin: err}
 		}
@@ -119,18 +121,15 @@ func saveFile(id string, image []byte) error {
 
 func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, cats []int32, Err error) {
 	catForIdentificationInt32 := int32(catForIdentification)
+	var paths []string
 	err := filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 		if !info.IsDir() {
-			faceT, err := rec.RecognizeSingleFile(path)
-			if err != nil {
-				return err
-			}
-			if faceT != nil {
-				samples = append(samples, faceT.Descriptor)
-				cats = append(cats, catForIdentificationInt32)
+			lastIndex := strings.LastIndex(path, ".")
+			if lastIndex != -1 && path[lastIndex+1:] == "jpg" {
+				paths = append(paths, path)
 			}
 		}
 		return nil
@@ -139,6 +138,33 @@ func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, c
 		Err = &MyError{custom: "error while collecting training data:", origin: err}
 		return
 	}
+	if len(paths) == 0 {
+		Err = errors.New("no photos found in training data")
+		return
+	}
+
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	wg.Add(len(paths))
+	for i := 0; i < len(paths); i++ {
+		go func() {
+			defer wg.Done()
+
+			var path string
+			path, paths = paths[len(paths)-1], paths[:len(paths)-1]
+			faceT, err := rec.RecognizeSingleFile(path)
+			if err != nil {
+				log.Println(fmt.Sprintf("error while recognizing %s, origin: %v", path, err))
+			}
+			if faceT != nil {
+				mu.Lock()
+				samples = append(samples, faceT.Descriptor)
+				cats = append(cats, catForIdentificationInt32)
+				mu.Unlock()
+			}
+		}()
+	}
+	wg.Wait()
 	return samples, cats, err
 }
 

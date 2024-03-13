@@ -31,8 +31,8 @@ func (app *App) Start(ctx context.Context) error {
 	ch := make(chan error, 1)
 
 	go func() {
+		log.Println("Server start")
 		err := server.ListenAndServe()
-		log.Println("Server started")
 		if err != nil {
 			ch <- fmt.Errorf("failed to start server: %w", err)
 		}
