@@ -12,42 +12,48 @@ import (
 type Recognizer struct {
 }
 
-func (h *Recognizer) Recognize(w http.ResponseWriter, r *http.Request) {
-	idParam := chi.URLParam(r, "id")
-	imageData, err := io.ReadAll(r.Body)
+func (h *Recognizer) Recognize(writer http.ResponseWriter, request *http.Request) {
+	idParam := chi.URLParam(request, "id")
+	imageData, err := io.ReadAll(request.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	result, err := recognizer.IsSamePersonById(idParam, imageData)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	writer.Header().Set("Content-Type", "application/json")
+	writer.WriteHeader(http.StatusOK)
 	if result {
-		w.Write([]byte("{result:true}"))
+		if _, err := writer.Write([]byte("{result:true}")); err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	} else {
-		w.Write([]byte("{result:false}"))
+		if _, err := writer.Write([]byte("{result:false}")); err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 
 }
 
-func (h *Recognizer) AddToRecognize(w http.ResponseWriter, r *http.Request) {
-	idParam := chi.URLParam(r, "id")
-	imageData, err := io.ReadAll(r.Body)
+func (h *Recognizer) AddToRecognize(writer http.ResponseWriter, request *http.Request) {
+	idParam := chi.URLParam(request, "id")
+	imageData, err := io.ReadAll(request.Body)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(writer, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	if err = recognizer.RecognizeAndSave(idParam, imageData); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(writer, err.Error(), http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	writer.WriteHeader(http.StatusOK)
 }
 
 func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http.Request) {
@@ -80,8 +86,14 @@ func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http
 	writer.Header().Set("Content-Type", "application/json")
 	writer.WriteHeader(http.StatusOK)
 	if result {
-		writer.Write([]byte("{result:true}"))
+		if _, err := writer.Write([]byte("{result:true}")); err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	} else {
-		writer.Write([]byte("{result:false}"))
+		if _, err := writer.Write([]byte("{result:false}")); err != nil {
+			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }

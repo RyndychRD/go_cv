@@ -8,16 +8,17 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 )
 
 var (
-	modelsDir               = filepath.Join("recognizer", "models")
-	imagesDir               = filepath.Join("recognizer", "images")
-	isTestThreshold         = false
-	catForIdentification    = 200
-	classificationThreshold = 0.3
+	modelsDir                       = filepath.Join("recognizer", "models")
+	imagesDir                       = filepath.Join("recognizer", "images")
+	isTestThreshold                 = false
+	catForIdentification            = 200
+	ClassificationThreshold float32 = 0.3
 )
 
 func InitEnv() {
@@ -32,6 +33,12 @@ func InitEnv() {
 	isTest, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
 	if tExists && isTest == "1" {
 		isTestThreshold = true
+	}
+	threshold, thresExists := os.LookupEnv("THRESHOLD_VALUE")
+	if thresExists {
+		if s, err := strconv.ParseFloat(threshold, 32); err == nil {
+			ClassificationThreshold = float32(s)
+		}
 	}
 }
 
@@ -75,7 +82,7 @@ func IsSamePersonById(id string, image []byte) (result bool, Err error) {
 		return
 	}
 	rec.SetSamples(samples, cats)
-	catID := rec.ClassifyThreshold(f.Descriptor, float32(classificationThreshold))
+	catID := rec.ClassifyThreshold(f.Descriptor, ClassificationThreshold)
 	testThresholdIfEnabled(rec, f)
 	return catID == catForIdentification, nil
 }
@@ -101,7 +108,7 @@ func IsSamePerson(example []byte, toTest []byte) (result bool, Err error) {
 	samples := []face.Descriptor{exampleFace.Descriptor}
 	cats := []int32{int32(catForIdentification)}
 	rec.SetSamples(samples, cats)
-	catID := rec.ClassifyThreshold(toTestFace.Descriptor, float32(classificationThreshold))
+	catID := rec.ClassifyThreshold(toTestFace.Descriptor, ClassificationThreshold)
 	testThresholdIfEnabled(rec, toTestFace)
 	return catID == catForIdentification, nil
 }
@@ -142,7 +149,9 @@ func saveFile(id string, image []byte) error {
 			return &MyError{custom: "can't create destination folder:", origin: err}
 		}
 	}
-	os.WriteFile(filepath.Join(imagesDir, id, uuid.New().String()+".jpg"), image, 0777)
+	if err := os.WriteFile(filepath.Join(imagesDir, id, uuid.New().String()+".jpg"), image, 0777); err != nil {
+		return &MyError{custom: "can't save new image to destination:", origin: err}
+	}
 	return nil
 }
 
@@ -206,10 +215,13 @@ func checkTrainingDataExist(id string) (directory string, Err error) {
 
 func testThresholdIfEnabled(rec *face.Recognizer, f face.Face) {
 	if isTestThreshold {
-		for i := 1; i <= 10; i++ {
-			thr := float32(i) / float32(10)
+		for i := 5; i <= 100; i = i + 1 {
+			thr := float32(i) / float32(100)
 			catID := rec.ClassifyThreshold(f.Descriptor, thr)
 			fmt.Printf("cat by classificator %v with threshold %f \n", catID, thr)
+			if catID == catForIdentification {
+				return
+			}
 		}
 	}
 }

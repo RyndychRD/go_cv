@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"opencv/src/recognizer"
 	"time"
 )
 
@@ -32,6 +33,7 @@ func (app *App) Start(ctx context.Context) error {
 
 	go func() {
 		log.Println("Server start")
+		log.Printf("Threshold set to %f", recognizer.ClassificationThreshold)
 		err := server.ListenAndServe()
 		if err != nil {
 			ch <- fmt.Errorf("failed to start server: %w", err)
