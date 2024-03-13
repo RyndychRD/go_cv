@@ -21,6 +21,7 @@ func (app *App) loadRoutes() {
 
 func (app *App) loadRecognizerRoutes(router chi.Router) {
 	recognizerHandler := &handler.Recognizer{}
+	router.Post("/", recognizerHandler.RecognizeTwoPhoto)
 	router.Put("/{id}", recognizerHandler.AddToRecognize)
 	router.Post("/{id}", recognizerHandler.Recognize)
 }

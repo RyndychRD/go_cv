@@ -13,10 +13,11 @@ import (
 )
 
 var (
-	modelsDir            = filepath.Join("recognizer", "models")
-	imagesDir            = filepath.Join("recognizer", "images")
-	isTestThreshold      = false
-	catForIdentification = 200
+	modelsDir               = filepath.Join("recognizer", "models")
+	imagesDir               = filepath.Join("recognizer", "images")
+	isTestThreshold         = false
+	catForIdentification    = 200
+	classificationThreshold = 0.3
 )
 
 func InitEnv() {
@@ -40,7 +41,7 @@ func RecognizeAndSave(id string, image []byte) error {
 		log.Fatalf("can't init face recognizer: %v", err)
 	}
 	defer rec.Close()
-	if _, err = recognizeOneFace(rec, image); err != nil {
+	if _, err = recognizeOneFace(rec, image, false); err != nil {
 		return err
 	}
 	if err = saveFile(id, image); err != nil {
@@ -49,7 +50,7 @@ func RecognizeAndSave(id string, image []byte) error {
 	return nil
 }
 
-func IsSamePerson(id string, image []byte) (result bool, Err error) {
+func IsSamePersonById(id string, image []byte) (result bool, Err error) {
 	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
 		Err = &MyError{
@@ -69,13 +70,39 @@ func IsSamePerson(id string, image []byte) (result bool, Err error) {
 		return
 	}
 	// get face from in image
-	f, Err := recognizeOneFace(rec, image)
+	f, Err := recognizeOneFace(rec, image, false)
 	if Err != nil {
 		return
 	}
 	rec.SetSamples(samples, cats)
-	catID := rec.ClassifyThreshold(f.Descriptor, float32(0.2))
+	catID := rec.ClassifyThreshold(f.Descriptor, float32(classificationThreshold))
 	testThresholdIfEnabled(rec, f)
+	return catID == catForIdentification, nil
+}
+
+func IsSamePerson(example []byte, toTest []byte) (result bool, Err error) {
+	rec, err := face.NewRecognizer(modelsDir)
+	if err != nil {
+		Err = &MyError{
+			custom: "can't init face recognizer:",
+			origin: err,
+		}
+		return
+	}
+	defer rec.Close()
+	exampleFace, Err := recognizeOneFace(rec, example, true)
+	if Err != nil {
+		return
+	}
+	toTestFace, Err := recognizeOneFace(rec, toTest, false)
+	if Err != nil {
+		return
+	}
+	samples := []face.Descriptor{exampleFace.Descriptor}
+	cats := []int32{int32(catForIdentification)}
+	rec.SetSamples(samples, cats)
+	catID := rec.ClassifyThreshold(toTestFace.Descriptor, float32(classificationThreshold))
+	testThresholdIfEnabled(rec, toTestFace)
 	return catID == catForIdentification, nil
 }
 
@@ -89,7 +116,7 @@ func (e *MyError) Error() string {
 		e.custom, e.origin)
 }
 
-func recognizeOneFace(rec *face.Recognizer, image []byte) (face face.Face, Err error) {
+func recognizeOneFace(rec *face.Recognizer, image []byte, isIgnoreSeveralFaces bool) (face face.Face, Err error) {
 	faces, err := rec.Recognize(image)
 	if err != nil {
 		Err = &MyError{custom: "can't recognize face", origin: err}
@@ -99,8 +126,8 @@ func recognizeOneFace(rec *face.Recognizer, image []byte) (face face.Face, Err e
 		Err = errors.New("found no face ")
 		return
 	}
-	if len(faces) > 1 {
-		Err = errors.New("found more than 1 face ")
+	if isIgnoreSeveralFaces == false && len(faces) > 1 {
+		Err = errors.New("found more than 1 face on single photo")
 		return
 	}
 	face = faces[0]
