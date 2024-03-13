@@ -25,20 +25,30 @@ func InitEnv() {
 	modelPath, mExists := os.LookupEnv("MODEL_FULL_PATH")
 	if mExists && modelPath != "" {
 		modelsDir = modelPath
+	} else {
+		log.Println("bad MODEL_FULL_PATH, using default ", modelsDir)
 	}
 	storagePath, sExists := os.LookupEnv("STORAGE_FULL_PATH")
 	if sExists && storagePath != "" {
 		imagesDir = storagePath
+	} else {
+		log.Println("bad STORAGE_FULL_PATH, using default ", imagesDir)
 	}
 	isTest, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
 	if tExists && isTest == "1" {
 		isTestThreshold = true
+	} else {
+		log.Println("bad IS_TEST_THRESHOLD, using default ", isTestThreshold)
 	}
 	threshold, thresExists := os.LookupEnv("THRESHOLD_VALUE")
 	if thresExists {
 		if s, err := strconv.ParseFloat(threshold, 32); err == nil {
 			ClassificationThreshold = float32(s)
+		} else {
+			log.Println("bad THRESHOLD_VALUE, using default ", ClassificationThreshold)
 		}
+	} else {
+		log.Println("bad THRESHOLD_VALUE, using default ", ClassificationThreshold)
 	}
 }
 

@@ -32,7 +32,7 @@ func (app *App) Start(ctx context.Context) error {
 	ch := make(chan error, 1)
 
 	go func() {
-		log.Println("Server start")
+		log.Println("Server start on port ", app.config.ServerPort)
 		log.Printf("Threshold set to %f", recognizer.ClassificationThreshold)
 		err := server.ListenAndServe()
 		if err != nil {
