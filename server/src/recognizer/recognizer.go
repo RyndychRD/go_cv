@@ -35,8 +35,8 @@ func InitEnv() {
 		log.Println("bad STORAGE_FULL_PATH, using default ", imagesDir)
 	}
 	isTest, tExists := os.LookupEnv("IS_TEST_THRESHOLD")
-	if tExists && isTest == "1" {
-		isTestThreshold = true
+	if tExists {
+		isTestThreshold = isTest == "1"
 	} else {
 		log.Println("bad IS_TEST_THRESHOLD, using default ", isTestThreshold)
 	}
@@ -55,7 +55,7 @@ func InitEnv() {
 func RecognizeAndSave(id string, image []byte) error {
 	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
-		log.Fatalf("can't init face recognizer: %v", err)
+		return errors.New(fmt.Sprintf("can't init face recognizer: %v", err))
 	}
 	defer rec.Close()
 	if _, err = recognizeOneFace(rec, image, false); err != nil {
@@ -67,13 +67,10 @@ func RecognizeAndSave(id string, image []byte) error {
 	return nil
 }
 
-func IsSamePersonById(id string, image []byte) (result bool, Err error) {
+func IsSamePersonById(id string, image []byte) (result bool, thr float32, Err error) {
 	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
-		Err = &MyError{
-			custom: "can't init face recognizer:",
-			origin: err,
-		}
+		Err = errors.New(fmt.Sprintf("can't init face recognizer: %v", err))
 		return
 	}
 	defer rec.Close()
@@ -93,59 +90,40 @@ func IsSamePersonById(id string, image []byte) (result bool, Err error) {
 	}
 	rec.SetSamples(samples, cats)
 	catID := rec.ClassifyThreshold(f.Descriptor, ClassificationThreshold)
-	testThresholdIfEnabled(rec, f)
-	return catID == catForIdentification, nil
+	thr = testThresholdIfEnabled(rec, f)
+	return catID == catForIdentification, thr, nil
 }
 
-func IsSamePerson(example []byte, toTest []byte) (result bool, Err error) {
+func IsSamePerson(example []byte, toTest []byte) (result bool, thr float32, Err error) {
 	rec, err := face.NewRecognizer(modelsDir)
 	if err != nil {
-		Err = &MyError{
-			custom: "can't init face recognizer:",
-			origin: err,
-		}
+		Err = errors.New(fmt.Sprintf("can't init face recognizer: %v", err))
 		return
 	}
 	defer rec.Close()
 
 	exampleFace, err := recognizeOneFace(rec, example, true)
 	if err != nil {
-		Err = &MyError{
-			custom: "bad example face",
-			origin: err,
-		}
+		Err = errors.New(fmt.Sprintf("bad example face: %v", err))
 		return
 	}
 	toTestFace, err := recognizeOneFace(rec, toTest, false)
 	if err != nil {
-		Err = &MyError{
-			custom: "bad to-test face",
-			origin: err,
-		}
+		Err = errors.New(fmt.Sprintf("bad to-test face: %v", err))
 		return
 	}
 	samples := []face.Descriptor{exampleFace.Descriptor}
 	cats := []int32{int32(catForIdentification)}
 	rec.SetSamples(samples, cats)
 	catID := rec.ClassifyThreshold(toTestFace.Descriptor, ClassificationThreshold)
-	testThresholdIfEnabled(rec, toTestFace)
-	return catID == catForIdentification, nil
-}
-
-type MyError struct {
-	custom string
-	origin error
-}
-
-func (e *MyError) Error() string {
-	return fmt.Sprintf("%s, origin: %s",
-		e.custom, e.origin)
+	thr = testThresholdIfEnabled(rec, toTestFace)
+	return catID == catForIdentification, thr, nil
 }
 
 func recognizeOneFace(rec *face.Recognizer, image []byte, isIgnoreSeveralFaces bool) (face face.Face, Err error) {
 	faces, err := rec.Recognize(image)
 	if err != nil {
-		Err = &MyError{custom: "can't recognize face", origin: err}
+		Err = errors.New(fmt.Sprintf("can't recognize face: %v", err))
 		return
 	}
 	if len(faces) == 0 {
@@ -165,11 +143,11 @@ func saveFile(id string, image []byte) error {
 	if _, err := os.Stat(directory); os.IsNotExist(err) {
 		err := os.MkdirAll(directory, 0755)
 		if err != nil {
-			return &MyError{custom: "can't create destination folder:", origin: err}
+			return errors.New(fmt.Sprintf("can't create destination folder: %v", err))
 		}
 	}
 	if err := os.WriteFile(filepath.Join(imagesDir, id, uuid.New().String()+".jpg"), image, 0777); err != nil {
-		return &MyError{custom: "can't save new image to destination:", origin: err}
+		return errors.New(fmt.Sprintf("can't save new image to destination: %v", err))
 	}
 	return nil
 }
@@ -190,7 +168,7 @@ func train(directory string, rec *face.Recognizer) (samples []face.Descriptor, c
 		return nil
 	})
 	if err != nil {
-		Err = &MyError{custom: "error while collecting training data:", origin: err}
+		Err = errors.New(fmt.Sprintf("error while collecting training data: %v", err))
 		return
 	}
 	if len(paths) == 0 {
@@ -232,15 +210,16 @@ func checkTrainingDataExist(id string) (directory string, Err error) {
 	return
 }
 
-func testThresholdIfEnabled(rec *face.Recognizer, f face.Face) {
+func testThresholdIfEnabled(rec *face.Recognizer, f face.Face) float32 {
 	if isTestThreshold {
 		for i := 5; i <= 100; i = i + 1 {
 			thr := float32(i) / float32(100)
 			catID := rec.ClassifyThreshold(f.Descriptor, thr)
 			fmt.Printf("cat by classificator %v with threshold %f \n", catID, thr)
 			if catID == catForIdentification {
-				return
+				return thr
 			}
 		}
 	}
+	return -1.0
 }
