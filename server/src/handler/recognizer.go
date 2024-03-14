@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"encoding/base64"
-	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-chi/chi/v5"
 	"io"
 	"log"
+	"mime/multipart"
 	"net/http"
 	"opencv/src/convertion"
 	"opencv/src/recognizer"
@@ -66,30 +66,58 @@ func (h *Recognizer) AddToRecognize(writer http.ResponseWriter, request *http.Re
 	writer.WriteHeader(http.StatusOK)
 }
 
-func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http.Request) {
-	type bodyStruct struct {
-		Example string `json:"example"`
-		ToTest  string `json:"to-test"`
-	}
-	var body bodyStruct
-	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
-		badRequest(writer, fmt.Sprintf("can't decode json, error: %+v", err))
+func getExampleAndToTestByteArray(request *http.Request) (example []byte, toTest []byte, err error) {
+	err = request.ParseMultipartForm(10 << 20) // Максимальный размер 32MB
+	if err != nil {
+		err = errors.New(fmt.Sprintf("error parsing form, error: %+v", err))
 		return
 	}
 
-	example, err := base64.StdEncoding.DecodeString(body.Example)
+	exampleFile, _, err := request.FormFile("example")
 	if err != nil {
-		badRequest(writer, fmt.Sprintf("can't decode example image from base64, error: %+v", err))
+		err = errors.New(fmt.Sprintf("error parsing example file, error: %+v", err))
 		return
+	}
+	defer func(exampleFile multipart.File) {
+		err := exampleFile.Close()
+		if err != nil {
+			log.Printf("error closing file, error: %+v", err)
+		}
+	}(exampleFile)
+
+	toTestFile, _, err := request.FormFile("to-test")
+	if err != nil {
+		err = errors.New(fmt.Sprintf("error parsing to-test file, error: %+v", err))
+		return
+	}
+	defer func(toTestFile multipart.File) {
+		err := toTestFile.Close()
+		if err != nil {
+			log.Printf("error closing file, error: %+v", err)
+		}
+	}(toTestFile)
+
+	example, err = io.ReadAll(exampleFile)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("error parsing example file to byte array, error: %+v", err))
+		return
+	}
+
+	toTest, err = io.ReadAll(toTestFile)
+	if err != nil {
+		err = errors.New(fmt.Sprintf("error parsing to-test file to byte array, error: %+v", err))
+		return
+	}
+	return
+}
+
+func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http.Request) {
+	example, toTest, err := getExampleAndToTestByteArray(request)
+	if err != nil {
+		badRequest(writer, fmt.Sprintf("error reading form data, error: %+v", err))
 	}
 	if example, err = convertion.ToJpeg(example); err != nil {
 		badRequest(writer, fmt.Sprintf("can't convert example image to jpeg, error: %+v", err))
-		return
-	}
-
-	toTest, err := base64.StdEncoding.DecodeString(body.ToTest)
-	if err != nil {
-		badRequest(writer, fmt.Sprintf("can't decode to-test image from base64, error: %+v", err))
 		return
 	}
 	if toTest, err = convertion.ToJpeg(toTest); err != nil {
