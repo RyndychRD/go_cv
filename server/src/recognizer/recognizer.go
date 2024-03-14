@@ -107,12 +107,21 @@ func IsSamePerson(example []byte, toTest []byte) (result bool, Err error) {
 		return
 	}
 	defer rec.Close()
-	exampleFace, Err := recognizeOneFace(rec, example, true)
-	if Err != nil {
+
+	exampleFace, err := recognizeOneFace(rec, example, true)
+	if err != nil {
+		Err = &MyError{
+			custom: "bad example face",
+			origin: err,
+		}
 		return
 	}
-	toTestFace, Err := recognizeOneFace(rec, toTest, false)
-	if Err != nil {
+	toTestFace, err := recognizeOneFace(rec, toTest, false)
+	if err != nil {
+		Err = &MyError{
+			custom: "bad to-test face",
+			origin: err,
+		}
 		return
 	}
 	samples := []face.Descriptor{exampleFace.Descriptor}
@@ -140,7 +149,7 @@ func recognizeOneFace(rec *face.Recognizer, image []byte, isIgnoreSeveralFaces b
 		return
 	}
 	if len(faces) == 0 {
-		Err = errors.New("found no face ")
+		Err = errors.New("found no face")
 		return
 	}
 	if isIgnoreSeveralFaces == false && len(faces) > 1 {

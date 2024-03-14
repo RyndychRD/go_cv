@@ -3,9 +3,12 @@ package handler
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"github.com/go-chi/chi/v5"
 	"io"
+	"log"
 	"net/http"
+	"opencv/src/convertion"
 	"opencv/src/recognizer"
 )
 
@@ -64,23 +67,38 @@ func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http
 	var body bodyStruct
 	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
+		log.Println(err.Error())
 		return
 	}
 
 	example, err := base64.StdEncoding.DecodeString(body.Example)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
+		log.Println(err.Error())
 		return
 	}
+	if example, err = convertion.ToJpeg(example); err != nil {
+		http.Error(writer, fmt.Sprintf("bad example picture: %+v", err), http.StatusBadRequest)
+		log.Println(err.Error())
+		return
+	}
+
 	toTest, err := base64.StdEncoding.DecodeString(body.ToTest)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
+		log.Println(err.Error())
+		return
+	}
+	if toTest, err = convertion.ToJpeg(toTest); err != nil {
+		http.Error(writer, fmt.Sprintf("bad to-test picture: %+v", err), http.StatusBadRequest)
+		log.Println(err.Error())
 		return
 	}
 
 	result, err := recognizer.IsSamePerson(example, toTest)
 	if err != nil {
 		http.Error(writer, err.Error(), http.StatusBadRequest)
+		log.Println(err.Error())
 		return
 	}
 	writer.Header().Set("Content-Type", "application/json")
@@ -88,11 +106,13 @@ func (h *Recognizer) RecognizeTwoPhoto(writer http.ResponseWriter, request *http
 	if result {
 		if _, err := writer.Write([]byte("{result:true}")); err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			log.Println(err.Error())
 			return
 		}
 	} else {
 		if _, err := writer.Write([]byte("{result:false}")); err != nil {
 			http.Error(writer, err.Error(), http.StatusInternalServerError)
+			log.Println(err.Error())
 			return
 		}
 	}
